@@ -1,0 +1,18 @@
+# Env / secrets
+.env
+*.local
+
+# Go build artifacts
+/bin/
+/tmp/
+*.exe
+*.out
+*.test
+
+# Air (hot reload) artifacts
+build-errors.log
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

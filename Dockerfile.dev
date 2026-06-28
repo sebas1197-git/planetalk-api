@@ -1,0 +1,15 @@
+# Development image: runs the app through Air for hot-reload.
+# Source code is bind-mounted at runtime (see docker-compose.override.yml),
+# so we DON'T copy the code in here — Air watches the live files instead.
+FROM golang:1.25-alpine
+
+WORKDIR /app
+
+# git is needed by `go install`; then install Air.
+RUN apk add --no-cache git \
+    && go install github.com/air-verse/air@latest
+
+EXPOSE 8080
+
+# Start Air, which builds + runs the app and restarts it on every change.
+CMD ["air", "-c", ".air.toml"]

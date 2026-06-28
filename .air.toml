@@ -1,0 +1,23 @@
+# Air config: watches your Go files and rebuilds the app automatically.
+# Docs: https://github.com/air-verse/air
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  # Recompile the API into ./tmp/api, then run it.
+  cmd = "go build -o ./tmp/api ./cmd/api"
+  bin = "./tmp/api"
+  # Which file types trigger a rebuild.
+  include_ext = ["go", "sql", "tpl", "tmpl", "html"]
+  # Don't watch these folders.
+  exclude_dir = ["tmp", "vendor", "migrations/.git"]
+  # Poll the filesystem instead of relying on OS events. REQUIRED on Windows
+  # bind mounts, where inotify events don't reach the Linux container.
+  poll = true
+  poll_interval = 500            # milliseconds
+  delay = 500                    # wait after a change before rebuilding
+  stop_on_error = true           # keep the old binary running if build fails
+  kill_delay = "2s"
+
+[misc]
+  clean_on_exit = true

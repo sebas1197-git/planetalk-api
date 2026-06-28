@@ -1,0 +1,56 @@
+# Brings up the database, cache, and (optionally) the API together.
+# Usage:
+#   docker compose up postgres redis      # just the infrastructure
+#   docker compose up --build             # everything incl. the Go API
+name: planetalk   # project name -> shown as the group in Docker Desktop
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: planetalk-db
+    environment:
+      POSTGRES_USER: planetalk
+      POSTGRES_PASSWORD: planetalk
+      POSTGRES_DB: planetalk
+    ports:
+      # host:container — host is 5434 to avoid other Postgres instances on
+      # 5432/5433. Inside Docker the port is still 5432.
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U planetalk"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: planetalk-redis
+    ports:
+      # host:container — host is 6380 to avoid another Redis on 6379.
+      # Inside Docker the port is still 6379.
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build: .
+    container_name: planetalk-api
+    env_file: .env
+    environment:
+      # Override hosts so the API talks to the other containers by service name.
+      DATABASE_URL: postgres://planetalk:planetalk@postgres:5432/planetalk?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:

@@ -1,0 +1,17 @@
+# DEV OVERRIDE — Docker Compose auto-merges this file with docker-compose.yml
+# on every `docker compose up`. It swaps the API container for a hot-reloading
+# dev container (Air) that watches your live source code.
+#
+# Want the production-like build instead (the plain Dockerfile, no hot reload)?
+#   docker compose -f docker-compose.yml up --build
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev      # use the dev image (Air) instead of the prod one
+    volumes:
+      - .:/app                        # your live code -> changes are seen instantly
+      - planetalk_gomod:/go/pkg/mod   # keep downloaded Go modules between restarts
+
+volumes:
+  planetalk_gomod:
