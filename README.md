@@ -36,12 +36,19 @@ cmd/api/          # entrypoint (wires everything together)
 internal/
   config/         # env -> Config struct
   db/             # Postgres pool + migration runner
+  redis/          # Redis client
   httputil/       # consistent success/error response helpers
   middleware/     # JWT auth middleware
   auth/           # phone OTP + JWT
   user/           # profiles, interests, friends
+  realtime/       # WebSocket hub (presence + Redis pub/sub fan-out)
+  match/          # Quick Match (Redis queue + pairing)
+  call/           # Agora video token issuing
+  chat/           # messages + translation
 pkg/
   twilio/         # SMS sender (console stub in dev, Twilio in prod)
+  agora/          # RTC token builder
+  translate/      # translator (Google v2 REST, stub in dev)
 migrations/       # SQL migrations
 ```
 Each feature module follows the same layers: **handler → service → repository**.
@@ -97,16 +104,35 @@ via `localhost:5434` / `localhost:6380` from `.env`.
 | POST | `/api/v1/friends/:id` | ✅ | Send friend request |
 | POST | `/api/v1/friends/:id/accept` | ✅ | Accept request |
 | DELETE | `/api/v1/friends/:id` | ✅ | Remove friend |
+| GET (WS) | `/api/v1/ws?token=…` | ✅ | WebSocket: live events |
+| GET | `/api/v1/presence` | ✅ | List online users |
+| GET | `/api/v1/presence/:id` | ✅ | Is a user online? |
+| POST | `/api/v1/realtime/echo` | ✅ | Send a test event to yourself |
+| POST | `/api/v1/match/enter` | ✅ | Join Quick Match queue |
+| POST | `/api/v1/match/leave` | ✅ | Leave the queue |
+| GET | `/api/v1/matches/:id` | ✅ | Match details (participants) |
+| POST | `/api/v1/matches/:id/end` | ✅ | End a match |
+| POST | `/api/v1/matches/:id/token` | ✅ | Get an Agora video token |
+| POST | `/api/v1/matches/:id/messages` | ✅ | Send a chat message |
+| GET | `/api/v1/matches/:id/messages` | ✅ | Chat history (paginated) |
+
+### Realtime events (over the WebSocket)
+| Event `type` | When |
+|---|---|
+| `match_found` | You were paired in Quick Match |
+| `match_ended` | The other participant ended the match |
+| `message` | You received a chat message |
+| `echo` | Test event (from `/realtime/echo`) |
 
 ## Roadmap
 - [x] Project skeleton & config
 - [x] Database layer & migrations
 - [x] Auth (phone OTP + JWT)
 - [x] Users, profiles, interests, friends
-- [ ] Realtime hub (WebSockets: presence + live events)
-- [ ] Quick Match (Redis matchmaking queue)
-- [ ] Video call tokens (Agora)
-- [ ] Chat + real‑time translation
+- [x] Realtime hub (WebSockets: presence + live events)
+- [x] Quick Match (Redis matchmaking queue)
+- [x] Video call tokens (Agora)
+- [x] Chat + real‑time translation
 - [ ] Feed (posts / personal homepage)
 - [ ] Moderation (reports, blocks)
 - [ ] Flutter mobile app (separate repo)
