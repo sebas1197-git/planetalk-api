@@ -37,9 +37,10 @@ type Config struct {
 	TwilioAuthToken  string
 	TwilioFrom       string
 
-	// Google Translate — empty => use the stub
+	// Google Translate — empty => use the stub (pass-through)
 	GoogleCredentialsPath  string
 	GoogleTranslateProject string
+	GoogleTranslateAPIKey  string
 
 	// Agora (video)
 	AgoraAppID    string
@@ -71,6 +72,7 @@ func Load() (*Config, error) {
 
 		GoogleCredentialsPath:  os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"),
 		GoogleTranslateProject: os.Getenv("GOOGLE_TRANSLATE_PROJECT_ID"),
+		GoogleTranslateAPIKey:  os.Getenv("GOOGLE_TRANSLATE_API_KEY"),
 
 		AgoraAppID:    os.Getenv("AGORA_APP_ID"),
 		AgoraAppCert:  os.Getenv("AGORA_APP_CERTIFICATE"),

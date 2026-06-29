@@ -18,6 +18,7 @@ import (
 
 	"github.com/sebas1197-git/planetalk/internal/auth"
 	"github.com/sebas1197-git/planetalk/internal/call"
+	"github.com/sebas1197-git/planetalk/internal/chat"
 	"github.com/sebas1197-git/planetalk/internal/config"
 	"github.com/sebas1197-git/planetalk/internal/db"
 	"github.com/sebas1197-git/planetalk/internal/match"
@@ -25,6 +26,7 @@ import (
 	"github.com/sebas1197-git/planetalk/internal/redis"
 	"github.com/sebas1197-git/planetalk/internal/user"
 	"github.com/sebas1197-git/planetalk/pkg/agora"
+	"github.com/sebas1197-git/planetalk/pkg/translate"
 	"github.com/sebas1197-git/planetalk/pkg/twilio"
 )
 
@@ -94,6 +96,11 @@ func main() {
 	agoraBuilder := agora.New(cfg.AgoraAppID, cfg.AgoraAppCert, cfg.AgoraTokenTTL)
 	callSvc := call.NewService(matchSvc, agoraBuilder)
 	call.RegisterRoutes(v1, call.NewHandler(callSvc), tokens)
+
+	// Chat module (Step 8): /api/v1/matches/:id/messages (send + history)
+	translator := translate.New(cfg.GoogleTranslateAPIKey)
+	chatSvc := chat.NewService(chat.NewRepository(pool), matchSvc, translator, hub)
+	chat.RegisterRoutes(v1, chat.NewHandler(chatSvc), tokens)
 
 	// 6. Wrap the router in an http.Server so we can shut it down cleanly.
 	srv := &http.Server{
