@@ -39,21 +39,25 @@ func NewService(repo *Repository, tokens *TokenManager, sms twilio.Sender) *Serv
 	return &Service{repo: repo, tokens: tokens, sms: sms}
 }
 
-// RequestOTP generates a code, stores its HASH, and "sends" it via SMS.
-// The plain code is NEVER stored or returned — only delivered over SMS.
-func (s *Service) RequestOTP(ctx context.Context, phone string) error {
+// RequestOTP generates a code, stores its HASH, sends it via SMS, and returns
+// the plain code. The code is only ever exposed by the handler in DEV mode
+// (for automated testing) — never in production.
+func (s *Service) RequestOTP(ctx context.Context, phone string) (string, error) {
 	code, err := generateCode()
 	if err != nil {
-		return err
+		return "", err
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(code), bcrypt.DefaultCost)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if err := s.repo.SaveOTP(ctx, phone, string(hash), time.Now().Add(otpTTL)); err != nil {
-		return err
+		return "", err
 	}
-	return s.sms.SendSMS(ctx, phone, fmt.Sprintf("Your Planetalk code is %s", code))
+	if err := s.sms.SendSMS(ctx, phone, fmt.Sprintf("Your Planetalk code is %s", code)); err != nil {
+		return "", err
+	}
+	return code, nil
 }
 
 // VerifyOTP checks the code; on success creates/finds the user and returns tokens.

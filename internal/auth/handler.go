@@ -13,11 +13,12 @@ import (
 
 // Handler wraps the service so Gin handlers can call it.
 type Handler struct {
-	svc *Service
+	svc     *Service
+	devMode bool // when true, OTP request responses include the code (DEV ONLY)
 }
 
-func NewHandler(svc *Service) *Handler {
-	return &Handler{svc: svc}
+func NewHandler(svc *Service, devMode bool) *Handler {
+	return &Handler{svc: svc, devMode: devMode}
 }
 
 // ---- Request body shapes (DTOs) ----------------------------------------
@@ -43,11 +44,18 @@ func (h *Handler) RequestOTP(c *gin.Context) {
 		httputil.Error(c, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	if err := h.svc.RequestOTP(c.Request.Context(), body.Phone); err != nil {
+	code, err := h.svc.RequestOTP(c.Request.Context(), body.Phone)
+	if err != nil {
 		httputil.Error(c, http.StatusInternalServerError, "send_failed", "could not send code")
 		return
 	}
-	httputil.OK(c, gin.H{"message": "code sent"})
+	resp := gin.H{"message": "code sent"}
+	if h.devMode {
+		// DEV ONLY: expose the code so test tools can auto-fill it.
+		// This branch is never taken in production (APP_ENV != development).
+		resp["dev_code"] = code
+	}
+	httputil.OK(c, resp)
 }
 
 // POST /auth/otp/verify

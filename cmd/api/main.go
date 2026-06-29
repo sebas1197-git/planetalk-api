@@ -19,6 +19,8 @@ import (
 	"github.com/sebas1197-git/planetalk/internal/auth"
 	"github.com/sebas1197-git/planetalk/internal/config"
 	"github.com/sebas1197-git/planetalk/internal/db"
+	"github.com/sebas1197-git/planetalk/internal/realtime"
+	"github.com/sebas1197-git/planetalk/internal/redis"
 	"github.com/sebas1197-git/planetalk/internal/user"
 	"github.com/sebas1197-git/planetalk/pkg/twilio"
 )
@@ -42,9 +44,19 @@ func main() {
 	}
 	defer pool.Close()
 
-	// 4. Build shared dependencies (tokens + SMS sender).
+	// 3b. Open Redis (presence + realtime pub/sub).
+	rdb, err := redis.Connect(context.Background(), cfg.RedisURL)
+	if err != nil {
+		log.Fatalf("redis connection failed: %v", err)
+	}
+	defer rdb.Close()
+
+	// 4. Build shared dependencies (tokens, SMS sender, realtime hub).
 	tokens := auth.NewTokenManager(cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
 	sms := twilio.New(cfg.TwilioAccountSID, cfg.TwilioAuthToken, cfg.TwilioFrom)
+
+	hub := realtime.NewHub(rdb)
+	go hub.Run(context.Background()) // runs the hub loop + Redis subscriber
 
 	// 5. Build the Gin router and register routes.
 	r := gin.New()
@@ -61,11 +73,15 @@ func main() {
 
 	// Auth module (Step 3): /api/v1/auth/otp/request, .../verify, .../refresh
 	authSvc := auth.NewService(auth.NewRepository(pool), tokens, sms)
-	auth.RegisterRoutes(v1, auth.NewHandler(authSvc))
+	devMode := cfg.AppEnv == "development"
+	auth.RegisterRoutes(v1, auth.NewHandler(authSvc, devMode))
 
 	// User module (Step 4): /api/v1/me, /users/:id, /interests, /friends/*
 	userSvc := user.NewService(user.NewRepository(pool))
 	user.RegisterRoutes(v1, user.NewHandler(userSvc), tokens)
+
+	// Realtime module (Step 5): /api/v1/ws, /presence, /realtime/echo
+	realtime.RegisterRoutes(v1, realtime.NewHandler(hub, tokens), tokens)
 
 	// 6. Wrap the router in an http.Server so we can shut it down cleanly.
 	srv := &http.Server{
