@@ -17,12 +17,14 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/sebas1197-git/planetalk/internal/auth"
+	"github.com/sebas1197-git/planetalk/internal/call"
 	"github.com/sebas1197-git/planetalk/internal/config"
 	"github.com/sebas1197-git/planetalk/internal/db"
 	"github.com/sebas1197-git/planetalk/internal/match"
 	"github.com/sebas1197-git/planetalk/internal/realtime"
 	"github.com/sebas1197-git/planetalk/internal/redis"
 	"github.com/sebas1197-git/planetalk/internal/user"
+	"github.com/sebas1197-git/planetalk/pkg/agora"
 	"github.com/sebas1197-git/planetalk/pkg/twilio"
 )
 
@@ -87,6 +89,11 @@ func main() {
 	// Match module (Step 6): /api/v1/match/enter, /match/leave, /matches/:id
 	matchSvc := match.NewService(match.NewRepository(pool), rdb, hub)
 	match.RegisterRoutes(v1, match.NewHandler(matchSvc), tokens)
+
+	// Call module (Step 7): /api/v1/matches/:id/token (Agora video token)
+	agoraBuilder := agora.New(cfg.AgoraAppID, cfg.AgoraAppCert, cfg.AgoraTokenTTL)
+	callSvc := call.NewService(matchSvc, agoraBuilder)
+	call.RegisterRoutes(v1, call.NewHandler(callSvc), tokens)
 
 	// 6. Wrap the router in an http.Server so we can shut it down cleanly.
 	srv := &http.Server{
