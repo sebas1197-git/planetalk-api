@@ -19,6 +19,7 @@ import (
 	"github.com/sebas1197-git/planetalk/internal/auth"
 	"github.com/sebas1197-git/planetalk/internal/config"
 	"github.com/sebas1197-git/planetalk/internal/db"
+	"github.com/sebas1197-git/planetalk/internal/match"
 	"github.com/sebas1197-git/planetalk/internal/realtime"
 	"github.com/sebas1197-git/planetalk/internal/redis"
 	"github.com/sebas1197-git/planetalk/internal/user"
@@ -82,6 +83,10 @@ func main() {
 
 	// Realtime module (Step 5): /api/v1/ws, /presence, /realtime/echo
 	realtime.RegisterRoutes(v1, realtime.NewHandler(hub, tokens), tokens)
+
+	// Match module (Step 6): /api/v1/match/enter, /match/leave, /matches/:id
+	matchSvc := match.NewService(match.NewRepository(pool), rdb, hub)
+	match.RegisterRoutes(v1, match.NewHandler(matchSvc), tokens)
 
 	// 6. Wrap the router in an http.Server so we can shut it down cleanly.
 	srv := &http.Server{
