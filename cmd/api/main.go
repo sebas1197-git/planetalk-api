@@ -23,6 +23,7 @@ import (
 	"github.com/sebas1197-git/planetalk/internal/db"
 	"github.com/sebas1197-git/planetalk/internal/feed"
 	"github.com/sebas1197-git/planetalk/internal/match"
+	"github.com/sebas1197-git/planetalk/internal/moderation"
 	"github.com/sebas1197-git/planetalk/internal/realtime"
 	"github.com/sebas1197-git/planetalk/internal/redis"
 	"github.com/sebas1197-git/planetalk/internal/user"
@@ -89,8 +90,13 @@ func main() {
 	// Realtime module (Step 5): /api/v1/ws, /presence, /realtime/echo
 	realtime.RegisterRoutes(v1, realtime.NewHandler(hub, tokens), tokens)
 
+	// Moderation module (Step 10): reports + blocks. Built early because match
+	// and chat use it to enforce blocks.
+	modSvc := moderation.NewService(moderation.NewRepository(pool))
+	moderation.RegisterRoutes(v1, moderation.NewHandler(modSvc), tokens)
+
 	// Match module (Step 6): /api/v1/match/enter, /match/leave, /matches/:id
-	matchSvc := match.NewService(match.NewRepository(pool), rdb, hub)
+	matchSvc := match.NewService(match.NewRepository(pool), rdb, hub, modSvc)
 	match.RegisterRoutes(v1, match.NewHandler(matchSvc), tokens)
 
 	// Call module (Step 7): /api/v1/matches/:id/token (Agora video token)
@@ -100,7 +106,7 @@ func main() {
 
 	// Chat module (Step 8): /api/v1/matches/:id/messages (send + history)
 	translator := translate.New(cfg.GoogleTranslateAPIKey)
-	chatSvc := chat.NewService(chat.NewRepository(pool), matchSvc, translator, hub)
+	chatSvc := chat.NewService(chat.NewRepository(pool), matchSvc, translator, hub, modSvc)
 	chat.RegisterRoutes(v1, chat.NewHandler(chatSvc), tokens)
 
 	// Feed module (Step 9): /api/v1/posts, /me/posts, /users/:id/posts

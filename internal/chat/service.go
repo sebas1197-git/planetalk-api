@@ -4,21 +4,31 @@ package chat
 
 import (
 	"context"
+	"errors"
 
 	"github.com/sebas1197-git/planetalk/internal/match"
 	"github.com/sebas1197-git/planetalk/internal/realtime"
 	"github.com/sebas1197-git/planetalk/pkg/translate"
 )
 
+// ErrBlocked is returned when a blocked pair tries to message.
+var ErrBlocked = errors.New("you cannot message this user")
+
+// BlockChecker reports whether two users have blocked each other.
+type BlockChecker interface {
+	IsBlocked(ctx context.Context, a, b string) (bool, error)
+}
+
 type Service struct {
 	repo    *Repository
 	matches *match.Service // verifies participation + tells us who the recipient is
 	tr      translate.Translator
 	hub     *realtime.Hub
+	blocks  BlockChecker
 }
 
-func NewService(repo *Repository, matches *match.Service, tr translate.Translator, hub *realtime.Hub) *Service {
-	return &Service{repo: repo, matches: matches, tr: tr, hub: hub}
+func NewService(repo *Repository, matches *match.Service, tr translate.Translator, hub *realtime.Hub, blocks BlockChecker) *Service {
+	return &Service{repo: repo, matches: matches, tr: tr, hub: hub, blocks: blocks}
 }
 
 // Send stores a message, translates it into the recipient's language, delivers
@@ -33,6 +43,13 @@ func (s *Service) Send(ctx context.Context, senderID, matchID, body string) (*Me
 	recipient := m.UserA
 	if senderID == m.UserA {
 		recipient = m.UserB
+	}
+
+	// Blocked pairs can't message each other.
+	if s.blocks != nil {
+		if blocked, _ := s.blocks.IsBlocked(ctx, senderID, recipient); blocked {
+			return nil, ErrBlocked
+		}
 	}
 
 	msg := &Message{MatchID: matchID, SenderID: senderID, Body: body}

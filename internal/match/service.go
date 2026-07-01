@@ -19,14 +19,25 @@ const queueKey = "matchmaking:queue"
 // ErrForbidden is returned when a user touches a match they're not part of.
 var ErrForbidden = errors.New("not a participant in this match")
 
-type Service struct {
-	repo *Repository
-	rdb  *goredis.Client
-	hub  *realtime.Hub
+// maxCandidates caps how many waiting users we'll skip past (blocked pairs)
+// before giving up and queuing the caller.
+const maxCandidates = 10
+
+// BlockChecker reports whether two users have blocked each other. moderation.Service
+// satisfies this. It's optional (nil = no block enforcement).
+type BlockChecker interface {
+	IsBlocked(ctx context.Context, a, b string) (bool, error)
 }
 
-func NewService(repo *Repository, rdb *goredis.Client, hub *realtime.Hub) *Service {
-	return &Service{repo: repo, rdb: rdb, hub: hub}
+type Service struct {
+	repo   *Repository
+	rdb    *goredis.Client
+	hub    *realtime.Hub
+	blocks BlockChecker
+}
+
+func NewService(repo *Repository, rdb *goredis.Client, hub *realtime.Hub, blocks BlockChecker) *Service {
+	return &Service{repo: repo, rdb: rdb, hub: hub, blocks: blocks}
 }
 
 // Enter puts the user in the queue, OR pairs them with someone already waiting.
@@ -37,17 +48,42 @@ func (s *Service) Enter(ctx context.Context, userID string) (*EnterResult, error
 	// Remove any stale copy of me first (e.g. I tapped "match" twice).
 	s.rdb.LRem(ctx, queueKey, 0, userID)
 
-	// Try to take the next waiting user.
-	partnerID, err := s.rdb.LPop(ctx, queueKey).Result()
-	if errors.Is(err, goredis.Nil) || partnerID == "" || partnerID == userID {
-		// Nobody waiting (or only me) -> join the queue and wait.
+	// Pull waiting users one at a time until we find a valid partner (not me,
+	// not someone we've blocked / who blocked us). Skipped users get re-queued.
+	var partnerID string
+	var skipped []string
+	for i := 0; i < maxCandidates; i++ {
+		cand, err := s.rdb.LPop(ctx, queueKey).Result()
+		if errors.Is(err, goredis.Nil) || cand == "" {
+			break // queue empty
+		}
+		if err != nil {
+			return nil, err
+		}
+		if cand == userID {
+			continue // skip ourselves
+		}
+		if s.blocks != nil {
+			if blocked, _ := s.blocks.IsBlocked(ctx, userID, cand); blocked {
+				skipped = append(skipped, cand) // can't match a blocked pair
+				continue
+			}
+		}
+		partnerID = cand
+		break
+	}
+
+	// Put any skipped (blocked) users back so they keep waiting for someone else.
+	for _, u := range skipped {
+		s.rdb.RPush(ctx, queueKey, u)
+	}
+
+	if partnerID == "" {
+		// No valid partner -> join the queue and wait.
 		if err := s.rdb.RPush(ctx, queueKey, userID).Err(); err != nil {
 			return nil, err
 		}
 		return &EnterResult{Status: "waiting"}, nil
-	}
-	if err != nil {
-		return nil, err
 	}
 
 	// We have a partner -> create the match.

@@ -70,6 +70,8 @@ func writeErr(c *gin.Context, err error) {
 		httputil.Error(c, http.StatusNotFound, "not_found", "match not found")
 	case errors.Is(err, match.ErrForbidden):
 		httputil.Error(c, http.StatusForbidden, "forbidden", "you are not part of this match")
+	case errors.Is(err, ErrBlocked):
+		httputil.Error(c, http.StatusForbidden, "blocked", "you cannot message this user")
 	default:
 		httputil.Error(c, http.StatusInternalServerError, "server_error", "something went wrong")
 	}

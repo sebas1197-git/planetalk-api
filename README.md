@@ -115,6 +115,14 @@ via `localhost:5434` / `localhost:6380` from `.env`.
 | POST | `/api/v1/matches/:id/token` | ✅ | Get an Agora video token |
 | POST | `/api/v1/matches/:id/messages` | ✅ | Send a chat message |
 | GET | `/api/v1/matches/:id/messages` | ✅ | Chat history (paginated) |
+| POST | `/api/v1/posts` | ✅ | Create a post |
+| DELETE | `/api/v1/posts/:id` | ✅ | Delete your post |
+| GET | `/api/v1/me/posts` | ✅ | Your posts |
+| GET | `/api/v1/users/:id/posts` | ✅ | A user's posts (visibility-filtered) |
+| POST | `/api/v1/reports` | ✅ | Report a user |
+| GET | `/api/v1/blocks` | ✅ | List users you've blocked |
+| POST | `/api/v1/blocks/:id` | ✅ | Block a user |
+| DELETE | `/api/v1/blocks/:id` | ✅ | Unblock a user |
 
 ### Realtime events (over the WebSocket)
 | Event `type` | When |
@@ -133,8 +141,8 @@ via `localhost:5434` / `localhost:6380` from `.env`.
 - [x] Quick Match (Redis matchmaking queue)
 - [x] Video call tokens (Agora)
 - [x] Chat + real‑time translation
-- [ ] Feed (posts / personal homepage)
-- [ ] Moderation (reports, blocks)
+- [x] Feed (posts / personal homepage)
+- [x] Moderation (reports, blocks)
 - [ ] Flutter mobile app (separate repo)
 
 ## License
