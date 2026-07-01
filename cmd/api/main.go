@@ -21,6 +21,7 @@ import (
 	"github.com/sebas1197-git/planetalk/internal/chat"
 	"github.com/sebas1197-git/planetalk/internal/config"
 	"github.com/sebas1197-git/planetalk/internal/db"
+	"github.com/sebas1197-git/planetalk/internal/feed"
 	"github.com/sebas1197-git/planetalk/internal/match"
 	"github.com/sebas1197-git/planetalk/internal/realtime"
 	"github.com/sebas1197-git/planetalk/internal/redis"
@@ -101,6 +102,10 @@ func main() {
 	translator := translate.New(cfg.GoogleTranslateAPIKey)
 	chatSvc := chat.NewService(chat.NewRepository(pool), matchSvc, translator, hub)
 	chat.RegisterRoutes(v1, chat.NewHandler(chatSvc), tokens)
+
+	// Feed module (Step 9): /api/v1/posts, /me/posts, /users/:id/posts
+	feedSvc := feed.NewService(feed.NewRepository(pool))
+	feed.RegisterRoutes(v1, feed.NewHandler(feedSvc), tokens)
 
 	// 6. Wrap the router in an http.Server so we can shut it down cleanly.
 	srv := &http.Server{
