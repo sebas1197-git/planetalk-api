@@ -11,4 +11,5 @@ func RegisterRoutes(r gin.IRouter, h *Handler) {
 	grp.POST("/otp/request", h.RequestOTP)
 	grp.POST("/otp/verify", h.VerifyOTP)
 	grp.POST("/refresh", h.Refresh)
+	grp.POST("/logout", h.Logout)
 }

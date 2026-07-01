@@ -89,10 +89,24 @@ func (h *Handler) Refresh(c *gin.Context) {
 		httputil.Error(c, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	access, err := h.svc.RefreshTokens(c.Request.Context(), body.RefreshToken)
+	access, newRefresh, err := h.svc.RefreshTokens(c.Request.Context(), body.RefreshToken)
 	if err != nil {
 		httputil.Error(c, http.StatusUnauthorized, "invalid_refresh_token", "refresh token is invalid or expired")
 		return
 	}
-	httputil.OK(c, gin.H{"access_token": access})
+	httputil.OK(c, gin.H{"access_token": access, "refresh_token": newRefresh})
+}
+
+// POST /auth/logout
+func (h *Handler) Logout(c *gin.Context) {
+	var body refreshBody
+	if err := c.ShouldBindJSON(&body); err != nil {
+		httputil.Error(c, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	if err := h.svc.Logout(c.Request.Context(), body.RefreshToken); err != nil {
+		httputil.Error(c, http.StatusInternalServerError, "server_error", "could not log out")
+		return
+	}
+	httputil.OK(c, gin.H{"message": "logged out"})
 }

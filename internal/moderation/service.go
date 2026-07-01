@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	ErrSelf         = errors.New("you cannot do that to yourself")
-	ErrReasonEmpty  = errors.New("a reason is required")
+	ErrSelf        = errors.New("you cannot do that to yourself")
+	ErrReasonEmpty = errors.New("a reason is required")
 )
 
 type Service struct {

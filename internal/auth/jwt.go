@@ -48,11 +48,12 @@ func (m *TokenManager) Generate(userID string, ttl time.Duration) (string, error
 	return token.SignedString(m.secret)
 }
 
-// Access/Refresh are convenience wrappers around Generate with the right TTLs.
+// Access issues a short-lived access JWT. (Refresh tokens are opaque + DB-backed,
+// see refresh.go — not JWTs.)
 func (m *TokenManager) Access(userID string) (string, error) { return m.Generate(userID, m.accessTTL) }
-func (m *TokenManager) Refresh(userID string) (string, error) {
-	return m.Generate(userID, m.refreshTTL)
-}
+
+// RefreshTTL is how long a refresh token stays valid.
+func (m *TokenManager) RefreshTTL() time.Duration { return m.refreshTTL }
 
 // Parse verifies a token's signature + expiry and returns its claims.
 // TODO:

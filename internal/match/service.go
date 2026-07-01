@@ -94,8 +94,8 @@ func (s *Service) Enter(ctx context.Context, userID string) (*EnterResult, error
 	}
 
 	// Notify BOTH users over WebSocket, each getting the OTHER as "partner".
-	s.notify(ctx, partnerID, matchID, channel, userID)  // waiting user hears about the enterer
-	s.notify(ctx, userID, matchID, channel, partnerID)  // enterer hears about the waiting user
+	s.notify(ctx, partnerID, matchID, channel, userID) // waiting user hears about the enterer
+	s.notify(ctx, userID, matchID, channel, partnerID) // enterer hears about the waiting user
 
 	// Also return the result directly to the caller (the enterer).
 	partner, _ := s.repo.PartnerSummary(ctx, partnerID)

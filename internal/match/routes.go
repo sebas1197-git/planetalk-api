@@ -1,8 +1,9 @@
 // Registers the match routes (all require a valid Bearer token).
 //
 // Note we use two prefixes to avoid a Gin static-vs-param route conflict:
-//   /match/...    -> queue actions (enter, leave)
-//   /matches/:id  -> a specific match resource (get, end)
+//
+//	/match/...    -> queue actions (enter, leave)
+//	/matches/:id  -> a specific match resource (get, end)
 package match
 
 import (

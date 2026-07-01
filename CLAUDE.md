@@ -60,12 +60,22 @@ mobile app is a separate repo. Module/import path: `github.com/sebas1197-git/pla
 - **Logs / DB:** `docker compose logs -f api` · `docker exec -it planetalk-db psql -U planetalk -d planetalk`.
 
 ## Testing approach
+- **Unit tests** (fast, no Docker): colocated `*_test.go`, run with `go test ./...`
+  (or `make test`). Cover pure logic (jwt, config, agora, translate, refresh helpers).
+- **Integration tests** (real Postgres): files tagged `//go:build integration`, run with
+  `go test -tags=integration ./...` (or `make test-integration`). `internal/testutil`
+  spins up a throwaway Postgres via **testcontainers-go** and applies the **embedded**
+  migrations (`migrations/embed.go` → iofs), so they're CWD-independent. Repository
+  tests live in `*_repository_integration_test.go`. Needs Docker running.
+  - **Windows local gotcha:** if you see "rootless Docker is not supported on Windows",
+    set `DOCKER_HOST=npipe:////./pipe/docker_engine` and run with `-p 1` (serial). CI
+    (Linux) is unaffected. `make test-integration` already passes `-p 1`.
+- **CI:** `.github/workflows/ci.yml` — a `unit` job (gofmt + vet + build + `go test -race`)
+  and an `integration` job (`go test -tags=integration`, Docker provided by ubuntu-latest).
 - **Dev OTP:** when `APP_ENV=development`, `POST /auth/otp/request` returns `dev_code`
   in the response (NEVER in production). Used to automate login.
-- **End-to-end checks:** write a throwaway Go program under `tmp/<name>/main.go`
-  (`tmp/` is gitignored + Air-excluded), run with the GoLand `go`, then delete it.
-  Pattern: log in via the API (dev_code), open a WebSocket with `?token=`, exercise
-  the flow, assert. (See git history for examples.)
+- **Throwaway E2E checks:** for quick manual flow checks, write a Go program under
+  `tmp/<name>/main.go` (`tmp/` is gitignored + Air-excluded), run it, then delete it.
 - **Postman:** collection "PlaneTalk" (managed via the Postman MCP). Two environments,
   `PlaneTalk - User A` / `User B`, are self-contained (own tokens) for two-user flows.
   `{{base_url}}` = `{{host}}/api/v1`. Keep new endpoints' requests in sync there.

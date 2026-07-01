@@ -26,6 +26,7 @@ var (
 	ErrNoValidCode     = errors.New("no valid code; request a new one")
 	ErrTooManyAttempts = errors.New("too many attempts; request a new code")
 	ErrInvalidCode     = errors.New("invalid code")
+	ErrInvalidRefresh  = errors.New("refresh token is invalid or expired")
 )
 
 // Service ties together everything auth needs.
@@ -89,19 +90,64 @@ func (s *Service) VerifyOTP(ctx context.Context, phone, code string) (access, re
 	if access, err = s.tokens.Access(userID); err != nil {
 		return "", "", err
 	}
-	if refresh, err = s.tokens.Refresh(userID); err != nil {
+	if refresh, err = s.issueRefreshToken(ctx, userID); err != nil {
 		return "", "", err
 	}
 	return access, refresh, nil
 }
 
-// RefreshTokens validates a refresh token and issues a fresh access token.
-func (s *Service) RefreshTokens(ctx context.Context, refreshToken string) (string, error) {
-	claims, err := s.tokens.Parse(refreshToken)
+// RefreshTokens validates a refresh token, ROTATES it (revokes the old, issues a
+// new one), and returns a fresh access token + the new refresh token.
+//
+// If a revoked token is replayed, that's a theft signal: we revoke every token
+// for that user and reject.
+func (s *Service) RefreshTokens(ctx context.Context, rawRefresh string) (access, newRefresh string, err error) {
+	hash := hashRefreshToken(rawRefresh)
+	rt, err := s.repo.GetRefreshToken(ctx, hash)
+	if err != nil {
+		return "", "", err
+	}
+	if rt == nil {
+		return "", "", ErrInvalidRefresh
+	}
+	if rt.Revoked {
+		// Reuse of an already-rotated token -> assume compromise, revoke all.
+		_ = s.repo.RevokeAllForUser(ctx, rt.UserID)
+		return "", "", ErrInvalidRefresh
+	}
+	if time.Now().After(rt.ExpiresAt) {
+		return "", "", ErrInvalidRefresh
+	}
+
+	// Rotate: revoke the used token, mint a fresh one.
+	if err := s.repo.RevokeRefreshToken(ctx, hash); err != nil {
+		return "", "", err
+	}
+	if newRefresh, err = s.issueRefreshToken(ctx, rt.UserID); err != nil {
+		return "", "", err
+	}
+	if access, err = s.tokens.Access(rt.UserID); err != nil {
+		return "", "", err
+	}
+	return access, newRefresh, nil
+}
+
+// Logout revokes the given refresh token (best-effort; unknown tokens are a no-op).
+func (s *Service) Logout(ctx context.Context, rawRefresh string) error {
+	return s.repo.RevokeRefreshToken(ctx, hashRefreshToken(rawRefresh))
+}
+
+// issueRefreshToken creates a random token, stores its hash, and returns the raw.
+func (s *Service) issueRefreshToken(ctx context.Context, userID string) (string, error) {
+	raw, err := generateRefreshToken()
 	if err != nil {
 		return "", err
 	}
-	return s.tokens.Access(claims.UserID)
+	expiresAt := time.Now().Add(s.tokens.RefreshTTL())
+	if err := s.repo.SaveRefreshToken(ctx, userID, hashRefreshToken(raw), expiresAt); err != nil {
+		return "", err
+	}
+	return raw, nil
 }
 
 // generateCode returns a cryptographically-random 6-digit string like "048213".

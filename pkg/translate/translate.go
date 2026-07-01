@@ -3,6 +3,7 @@
 // Same pattern as the SMS sender: an interface with two implementations.
 //   - StubTranslator: passes text through unchanged (dev / no API key).
 //   - GoogleTranslator: calls Google Cloud Translation v2 (REST + API key).
+//
 // Chat code depends on the interface, so it never changes when we swap them.
 package translate
 

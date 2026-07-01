@@ -11,7 +11,7 @@ import (
 )
 
 type Service struct {
-	matches *match.Service     // reused to verify participation + read the channel
+	matches *match.Service // reused to verify participation + read the channel
 	agora   *agora.TokenBuilder
 }
 

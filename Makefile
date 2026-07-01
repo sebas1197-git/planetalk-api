@@ -1,6 +1,6 @@
 # Shortcuts for common tasks. Run `make help` to list them.
 
-.PHONY: help run tidy docker-up docker-down migrate-up migrate-down test
+.PHONY: help run tidy docker-up docker-down migrate-up migrate-down test test-integration
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-14s %s\n", $$1, $$2}'
@@ -23,5 +23,8 @@ migrate-up: ## Apply DB migrations (requires golang-migrate CLI)
 migrate-down: ## Roll back the last migration
 	migrate -path migrations -database "$$DATABASE_URL" down 1
 
-test: ## Run tests
+test: ## Run fast unit tests (no Docker needed)
 	go test ./...
+
+test-integration: ## Run integration tests (real Postgres via testcontainers; needs Docker)
+	go test -tags=integration ./... -count=1 -p 1
